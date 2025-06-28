@@ -47,6 +47,8 @@ impl Dispatch<zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1, ()> for State {
     }
 }
 
+static BTN_LEFT: u32 = 0x110;
+
 fn main() -> anyhow::Result<()> {
     let conn = Connection::connect_to_env()?;
     let (globals, mut event_queue) = registry_queue_init::<State>(&conn)?;
@@ -58,6 +60,12 @@ fn main() -> anyhow::Result<()> {
     let v_pointer = manager.create_virtual_pointer(None, &qh, ());
 
     v_pointer.motion_absolute(timestamp(), 100, 100, 1920, 1080);
+    v_pointer.frame();
+
+    v_pointer.button(timestamp(), BTN_LEFT, ButtonState::Pressed);
+    v_pointer.frame();
+
+    v_pointer.button(timestamp(), BTN_LEFT, ButtonState::Released);
     v_pointer.frame();
 
     conn.flush()?;
