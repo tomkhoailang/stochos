@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use wayland_client::{
     globals::{registry_queue_init, GlobalListContents},
-    protocol::{wl_pointer::ButtonState, wl_registry},
+    protocol::{wl_output, wl_pointer::ButtonState, wl_registry},
     Connection, Dispatch, QueueHandle,
 };
 use wayland_protocols_wlr::virtual_pointer::v1::client::{
@@ -47,12 +47,29 @@ impl Dispatch<zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1, ()> for State {
     }
 }
 
+impl Dispatch<wl_output::WlOutput, ()> for State {
+    fn event(
+        _state: &mut Self,
+        _: &wl_output::WlOutput,
+        event: <wl_output::WlOutput as wayland_client::Proxy>::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        if let wl_output::Event::Mode { width, height, .. } = event {
+            println!("Found output mode: {}x{}", width, height);
+        }
+    }
+}
+
 static BTN_LEFT: u32 = 0x110;
 
 fn main() -> anyhow::Result<()> {
     let conn = Connection::connect_to_env()?;
     let (globals, mut event_queue) = registry_queue_init::<State>(&conn)?;
     let qh = event_queue.handle();
+
+    globals.bind::<wl_output::WlOutput, _, _>(&qh, 1..=2, ())?;
 
     let manager: zwlr_virtual_pointer_manager_v1::ZwlrVirtualPointerManagerV1 =
         globals.bind(&qh, 1..=2, ())?;
