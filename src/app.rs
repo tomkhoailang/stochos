@@ -11,9 +11,11 @@ pub fn run(backend: &mut dyn Backend) -> Result<()> {
     let (w, h) = backend.screen_size();
     let mut state = InputState::First;
     let mut target: Option<(u32, u32)> = None;
+    // When Some, we are in drag mode and this holds the drag start position.
+    let mut drag_origin: Option<(u32, u32)> = None;
     let mut pixels = vec![0u8; (w * h * 4) as usize];
 
-    render_grid(&mut pixels, w, h, &state);
+    render_grid(&mut pixels, w, h, &state, false);
     backend.present(&pixels, w, h)?;
 
     while let Some(key) = backend.next_key()? {
@@ -24,19 +26,37 @@ pub fn run(backend: &mut dyn Backend) -> Result<()> {
             }
             KeyEvent::Space => {
                 if let Some((x, y)) = target {
-                    backend.click(x, y)?;
+                    if let Some((ox, oy)) = drag_origin {
+                        backend.drag_select(ox, oy, x, y)?;
+                    } else {
+                        backend.click(x, y)?;
+                    }
                     break;
                 }
             }
             KeyEvent::Enter => {
                 if let Some((x, y)) = target {
-                    backend.double_click(x, y)?;
+                    if let Some((ox, oy)) = drag_origin {
+                        backend.drag_select(ox, oy, x, y)?;
+                    } else {
+                        backend.double_click(x, y)?;
+                    }
                     break;
                 }
             }
             KeyEvent::Char(ch) => {
-                if advance(&mut state, &mut target, ch, w, h, backend)? {
-                    render_grid(&mut pixels, w, h, &state);
+                if ch == b'/' && drag_origin.is_some() {
+                    // Cancel drag mode and exit
+                    backend.exit()?;
+                    break;
+                } else if ch == b'/' && matches!(state, InputState::Ready | InputState::SubFirst { .. }) {
+                    // Enter drag mode: record origin, reset grid for end selection
+                    drag_origin = target;
+                    state = InputState::First;
+                    render_grid(&mut pixels, w, h, &state, true);
+                    backend.present(&pixels, w, h)?;
+                } else if advance(&mut state, &mut target, ch, w, h, backend)? {
+                    render_grid(&mut pixels, w, h, &state, drag_origin.is_some());
                     backend.present(&pixels, w, h)?;
                 }
             }

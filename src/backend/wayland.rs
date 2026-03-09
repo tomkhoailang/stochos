@@ -188,6 +188,53 @@ impl Backend for WaylandBackend {
         Ok(())
     }
 
+    fn drag_select(&mut self, x1: u32, y1: u32, x2: u32, y2: u32) -> Result<()> {
+        if let Some(ls) = self.state.layer_surface.take() {
+            ls.destroy();
+        }
+        if let Some(s) = self.state.surface.take() {
+            s.destroy();
+        }
+        self.eq
+            .roundtrip(&mut self.state)
+            .context("roundtrip after surface destroy")?;
+
+        let (sw, sh) = (self.state.screen_w, self.state.screen_h);
+
+        if let Some(vp) = &self.state.vp {
+            vp.motion_absolute(timestamp(), x1, y1, sw, sh);
+            vp.frame();
+        }
+        self.eq
+            .roundtrip(&mut self.state)
+            .context("roundtrip after motion to start")?;
+
+        if let Some(vp) = &self.state.vp {
+            vp.button(timestamp(), BTN_LEFT, wl_pointer::ButtonState::Pressed);
+            vp.frame();
+        }
+        self.eq
+            .roundtrip(&mut self.state)
+            .context("roundtrip after press")?;
+
+        if let Some(vp) = &self.state.vp {
+            vp.motion_absolute(timestamp(), x2, y2, sw, sh);
+            vp.frame();
+        }
+        self.eq
+            .roundtrip(&mut self.state)
+            .context("roundtrip after motion to end")?;
+
+        if let Some(vp) = &self.state.vp {
+            vp.button(timestamp(), BTN_LEFT, wl_pointer::ButtonState::Released);
+            vp.frame();
+        }
+        self.eq
+            .roundtrip(&mut self.state)
+            .context("roundtrip after release")?;
+        Ok(())
+    }
+
     fn exit(&mut self) -> Result<()> {
         if let Some(ls) = self.state.layer_surface.take() {
             ls.destroy();

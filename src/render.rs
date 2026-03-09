@@ -6,6 +6,7 @@ use font8x8::UnicodeFonts;
 // Main grid
 const BG: [u8; 4] = [0x00, 0x00, 0x00, 0x00]; // fully transparent
 const CELL_NORMAL: [u8; 4] = [0x00, 0x00, 0x00, 0x66]; // 40% dark
+const CELL_DRAG: [u8; 4] = [0x40, 0x00, 0x40, 0x88]; // dark purple (drag mode)
 const CELL_HIGHLIGHT: [u8; 4] = [0x14, 0x30, 0x14, 0xAA]; // dark green
 const CELL_DIM: [u8; 4] = [0x00, 0x00, 0x00, 0x00]; // transparent
 const TEXT_FIRST: [u8; 4] = [0x00, 0xDC, 0xFF, 0xFF]; // yellow  (RGB 255,220,0)
@@ -20,9 +21,9 @@ const SUB_TEXT_FIRST: [u8; 4] = [0x00, 0xDC, 0xFF, 0xFF]; // yellow (same as mai
 /// Scale factor for main-grid glyphs (8×FONT_SCALE pixels per glyph).
 const FONT_SCALE: u32 = 2;
 
-pub fn render_grid(buf: &mut [u8], w: u32, h: u32, input: &InputState) {
+pub fn render_grid(buf: &mut [u8], w: u32, h: u32, input: &InputState, dragging: bool) {
     if let InputState::SubFirst { col, row } = input {
-        render_sub_grid(buf, w, h, *col, *row);
+        render_sub_grid(buf, w, h, *col, *row, dragging);
         return;
     }
 
@@ -41,8 +42,9 @@ pub fn render_grid(buf: &mut [u8], w: u32, h: u32, input: &InputState) {
             let first_hint = HINTS[col as usize];
             let second_hint = HINTS[row as usize];
 
+            let cell_normal = if dragging { CELL_DRAG } else { CELL_NORMAL };
             let (cell_bg, c1, c2) = match input {
-                InputState::First => (CELL_NORMAL, TEXT_FIRST, TEXT_SECOND),
+                InputState::First => (cell_normal, TEXT_FIRST, TEXT_SECOND),
                 InputState::Second(typed) => {
                     if first_hint == *typed {
                         (CELL_HIGHLIGHT, TEXT_HIGHLIGHT, TEXT_SECOND)
@@ -78,7 +80,7 @@ pub fn render_grid(buf: &mut [u8], w: u32, h: u32, input: &InputState) {
 
 /// Renders a 5×5 sub-grid inside the selected main cell.
 /// Each of the 25 cells has a unique single char — one keypress selects it.
-fn render_sub_grid(buf: &mut [u8], w: u32, h: u32, main_col: u32, main_row: u32) {
+fn render_sub_grid(buf: &mut [u8], w: u32, h: u32, main_col: u32, main_row: u32, dragging: bool) {
     for px in buf.chunks_exact_mut(4) {
         px.copy_from_slice(&BG);
     }
@@ -92,8 +94,12 @@ fn render_sub_grid(buf: &mut [u8], w: u32, h: u32, main_col: u32, main_row: u32)
     const SUB_BG: [u8; 4] = [0x30, 0x10, 0x00, 0x99];
     fill_rect(buf, w, cell_x, cell_y, cell_w, cell_h, SUB_BG);
 
-    // Amber outline around the selected main cell
-    let border: [u8; 4] = [0x00, 0xA5, 0xFF, 0xFF];
+    // Amber outline (or magenta in drag mode) around the selected main cell
+    let border: [u8; 4] = if dragging {
+        [0xFF, 0x00, 0xFF, 0xFF] // magenta
+    } else {
+        [0x00, 0xA5, 0xFF, 0xFF] // amber
+    };
     fill_rect(buf, w, cell_x, cell_y, cell_w, 1, border);
     fill_rect(buf, w, cell_x, cell_y + cell_h - 1, cell_w, 1, border);
     fill_rect(buf, w, cell_x, cell_y, 1, cell_h, border);

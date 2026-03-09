@@ -51,6 +51,7 @@ pub fn keycode_to_char(kc: u32) -> Option<u8> {
         48 => Some(b'b'),
         49 => Some(b'n'),
         50 => Some(b'm'),
+        53 => Some(b'/'),
         _ => None,
     }
 }
