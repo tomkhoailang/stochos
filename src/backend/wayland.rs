@@ -122,8 +122,7 @@ impl Backend for WaylandBackend {
 
     /// Destroy the overlay so the compositor removes it from the surface stack,
     /// then re-send motion to trigger a focus update, then click.
-    /// See CLAUDE.md for why the order and roundtrips are critical.
-    fn click_and_exit(&mut self, x: u32, y: u32) -> Result<()> {
+    fn click(&mut self, x: u32, y: u32) -> Result<()> {
         if let Some(ls) = self.state.layer_surface.take() {
             ls.destroy();
         }
@@ -148,6 +147,40 @@ impl Backend for WaylandBackend {
             vp.frame();
             vp.button(ts, BTN_LEFT, wl_pointer::ButtonState::Released);
             vp.frame();
+        }
+        self.eq
+            .roundtrip(&mut self.state)
+            .context("roundtrip after click")?;
+        Ok(())
+    }
+
+    fn double_click(&mut self, x: u32, y: u32) -> Result<()> {
+        if let Some(ls) = self.state.layer_surface.take() {
+            ls.destroy();
+        }
+        if let Some(s) = self.state.surface.take() {
+            s.destroy();
+        }
+        self.eq
+            .roundtrip(&mut self.state)
+            .context("roundtrip after surface destroy")?;
+
+        if let Some(vp) = &self.state.vp {
+            vp.motion_absolute(timestamp(), x, y, self.state.screen_w, self.state.screen_h);
+            vp.frame();
+        }
+        self.eq
+            .roundtrip(&mut self.state)
+            .context("roundtrip after motion")?;
+
+        if let Some(vp) = &self.state.vp {
+            for _ in 0..2 {
+                let ts = timestamp();
+                vp.button(ts, BTN_LEFT, wl_pointer::ButtonState::Pressed);
+                vp.frame();
+                vp.button(ts, BTN_LEFT, wl_pointer::ButtonState::Released);
+                vp.frame();
+            }
         }
         self.eq
             .roundtrip(&mut self.state)
@@ -314,6 +347,7 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for WaylandState {
             state.pending_key = match key {
                 1 => Some(KeyEvent::Escape),
                 57 => Some(KeyEvent::Space),
+                28 => Some(KeyEvent::Enter),
                 _ => keycode_to_char(key).map(KeyEvent::Char),
             };
         }

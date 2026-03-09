@@ -24,7 +24,13 @@ pub fn run(backend: &mut dyn Backend) -> Result<()> {
             }
             KeyEvent::Space => {
                 if let Some((x, y)) = target {
-                    backend.click_and_exit(x, y)?;
+                    backend.click(x, y)?;
+                    break;
+                }
+            }
+            KeyEvent::Enter => {
+                if let Some((x, y)) = target {
+                    backend.double_click(x, y)?;
                     break;
                 }
             }

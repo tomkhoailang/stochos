@@ -4,6 +4,7 @@ use anyhow::Result;
 pub enum KeyEvent {
     Char(u8),
     Space,
+    Enter,
     Escape,
 }
 
@@ -22,9 +23,10 @@ pub trait Backend {
     fn move_mouse(&mut self, x: u32, y: u32) -> Result<()>;
 
     /// Tear down the overlay, click at (x, y), then return.
-    /// Kept as one method because some backends (Wayland) need surface
-    /// destruction to happen before the click lands on the right window.
-    fn click_and_exit(&mut self, x: u32, y: u32) -> Result<()>;
+    fn click(&mut self, x: u32, y: u32) -> Result<()>;
+
+    /// Tear down the overlay, double click at (x, y), then return.
+    fn double_click(&mut self, x: u32, y: u32) -> Result<()>;
 
     /// Close the overlay without clicking.
     fn exit(&mut self) -> Result<()>;
