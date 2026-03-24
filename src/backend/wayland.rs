@@ -19,6 +19,7 @@ use wayland_protocols_wlr::{
 use anyhow::{Context, Result};
 
 use super::{Backend, KeyEvent};
+use crate::config::{config, Key};
 
 const BTN_LEFT: u32 = 0x110;
 const BTN_RIGHT: u32 = 0x111;
@@ -446,21 +447,12 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for WaylandState {
                 wl_keyboard::KeyState::Pressed => match key {
                     42 | 54 => state.shift_held = true,
                     _ => {
-                        state.pending_key = match key {
-                            1 => Some(KeyEvent::Close),
-                            57 => Some(KeyEvent::Click),
-                            28 => Some(KeyEvent::DoubleClick),
-                            15 => Some(KeyEvent::MacroMenu),
-                            14 => Some(KeyEvent::Undo),
-                            111 => Some(KeyEvent::RightClick),
-                            41 => Some(KeyEvent::MacroRecord),
-                            104 => Some(KeyEvent::ScrollUp),
-                            109 => Some(KeyEvent::ScrollDown),
-                            105 => Some(KeyEvent::ScrollLeft),
-                            106 => Some(KeyEvent::ScrollRight),
-                            3 if state.shift_held => Some(KeyEvent::Char('@')),
-                            _ => keycode_to_char(key).map(KeyEvent::Char),
-                        };
+                        state.pending_key = keycode_to_key(key, state.shift_held).and_then(|k| {
+                            config().keys.to_event(k).or(match k {
+                                Key::Char(c) => Some(KeyEvent::Char(c)),
+                                _ => None,
+                            })
+                        });
                     }
                 },
                 wl_keyboard::KeyState::Released => {
@@ -522,48 +514,176 @@ fn timestamp() -> u32 {
         .as_millis() as u32
 }
 
-/// Maps a Wayland key code to an ASCII character.
-pub fn keycode_to_char(kc: u32) -> Option<char> {
+/// Maps a Wayland key code to a platform-agnostic Key.
+fn keycode_to_key(kc: u32, shift_held: bool) -> Option<Key> {
+    // Special (non-character) keys — checked first, unaffected by shift
     match kc {
-        2 => Some('1'),
-        3 => Some('2'),
-        4 => Some('3'),
-        5 => Some('4'),
-        6 => Some('5'),
-        7 => Some('6'),
-        8 => Some('7'),
-        9 => Some('8'),
-        10 => Some('9'),
-        11 => Some('0'),
-        16 => Some('q'),
-        17 => Some('w'),
-        18 => Some('e'),
-        19 => Some('r'),
-        20 => Some('t'),
-        21 => Some('y'),
-        22 => Some('u'),
-        23 => Some('i'),
-        24 => Some('o'),
-        25 => Some('p'),
-        30 => Some('a'),
-        31 => Some('s'),
-        32 => Some('d'),
-        33 => Some('f'),
-        34 => Some('g'),
-        35 => Some('h'),
-        36 => Some('j'),
-        37 => Some('k'),
-        38 => Some('l'),
-        39 => Some(';'),
-        44 => Some('z'),
-        45 => Some('x'),
-        46 => Some('c'),
-        47 => Some('v'),
-        48 => Some('b'),
-        49 => Some('n'),
-        50 => Some('m'),
-        52 => Some('.'),
-        53 => Some('/'),
-        _ => None,
+        1 => return Some(Key::Escape),
+        14 => return Some(Key::Backspace),
+        15 => return Some(Key::Tab),
+        28 => return Some(Key::Enter),
+        57 => return Some(Key::Space),
+        // Navigation
+        102 => return Some(Key::Home),
+        103 => return Some(Key::End),
+        104 => return Some(Key::Up),
+        105 => return Some(Key::Left),
+        106 => return Some(Key::Right),
+        107 => return Some(Key::PageUp),
+        108 => return Some(Key::PageDown),
+        109 => return Some(Key::Down),
+        110 => return Some(Key::Insert),
+        111 => return Some(Key::Delete),
+        // Function keys
+        59 => return Some(Key::F1),
+        60 => return Some(Key::F2),
+        61 => return Some(Key::F3),
+        62 => return Some(Key::F4),
+        63 => return Some(Key::F5),
+        64 => return Some(Key::F6),
+        65 => return Some(Key::F7),
+        66 => return Some(Key::F8),
+        67 => return Some(Key::F9),
+        68 => return Some(Key::F10),
+        87 => return Some(Key::F11),
+        88 => return Some(Key::F12),
+        // Lock / toggle
+        58 => return Some(Key::CapsLock),
+        69 => return Some(Key::NumLock),
+        70 => return Some(Key::ScrollLock),
+        // System
+        99 => return Some(Key::PrintScreen),
+        119 => return Some(Key::Pause),
+        127 => return Some(Key::ContextMenu),
+        // Numpad
+        82 => return Some(Key::NumPad0),
+        79 => return Some(Key::NumPad1),
+        80 => return Some(Key::NumPad2),
+        81 => return Some(Key::NumPad3),
+        75 => return Some(Key::NumPad4),
+        76 => return Some(Key::NumPad5),
+        77 => return Some(Key::NumPad6),
+        71 => return Some(Key::NumPad7),
+        72 => return Some(Key::NumPad8),
+        73 => return Some(Key::NumPad9),
+        78 => return Some(Key::NumPadAdd),
+        74 => return Some(Key::NumPadSubtract),
+        55 => return Some(Key::NumPadMultiply),
+        98 => return Some(Key::NumPadDivide),
+        83 => return Some(Key::NumPadDecimal),
+        96 => return Some(Key::NumPadEnter),
+        _ => {}
     }
+
+    // Character keys — shift changes the produced character
+    let ch = if shift_held {
+        match kc {
+            // Shifted digits → symbols
+            2 => '!',
+            3 => '@',
+            4 => '#',
+            5 => '$',
+            6 => '%',
+            7 => '^',
+            8 => '&',
+            9 => '*',
+            10 => '(',
+            11 => ')',
+            // Shifted punctuation
+            12 => '_',
+            13 => '+',
+            26 => '{',
+            27 => '}',
+            43 => '|',
+            39 => ':',
+            40 => '"',
+            51 => '<',
+            52 => '>',
+            53 => '?',
+            41 => '~',
+            // Shifted letters → uppercase
+            16 => 'Q',
+            17 => 'W',
+            18 => 'E',
+            19 => 'R',
+            20 => 'T',
+            21 => 'Y',
+            22 => 'U',
+            23 => 'I',
+            24 => 'O',
+            25 => 'P',
+            30 => 'A',
+            31 => 'S',
+            32 => 'D',
+            33 => 'F',
+            34 => 'G',
+            35 => 'H',
+            36 => 'J',
+            37 => 'K',
+            38 => 'L',
+            44 => 'Z',
+            45 => 'X',
+            46 => 'C',
+            47 => 'V',
+            48 => 'B',
+            49 => 'N',
+            50 => 'M',
+            _ => return None,
+        }
+    } else {
+        match kc {
+            // Digits
+            2 => '1',
+            3 => '2',
+            4 => '3',
+            5 => '4',
+            6 => '5',
+            7 => '6',
+            8 => '7',
+            9 => '8',
+            10 => '9',
+            11 => '0',
+            // Punctuation
+            12 => '-',
+            13 => '=',
+            26 => '[',
+            27 => ']',
+            43 => '\\',
+            39 => ';',
+            40 => '\'',
+            51 => ',',
+            52 => '.',
+            53 => '/',
+            41 => '`',
+            // Letters
+            16 => 'q',
+            17 => 'w',
+            18 => 'e',
+            19 => 'r',
+            20 => 't',
+            21 => 'y',
+            22 => 'u',
+            23 => 'i',
+            24 => 'o',
+            25 => 'p',
+            30 => 'a',
+            31 => 's',
+            32 => 'd',
+            33 => 'f',
+            34 => 'g',
+            35 => 'h',
+            36 => 'j',
+            37 => 'k',
+            38 => 'l',
+            44 => 'z',
+            45 => 'x',
+            46 => 'c',
+            47 => 'v',
+            48 => 'b',
+            49 => 'n',
+            50 => 'm',
+            _ => return None,
+        }
+    };
+    Some(Key::Char(ch))
 }

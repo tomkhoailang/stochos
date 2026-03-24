@@ -1,4 +1,4 @@
-use crate::input::{InputState, COLS, HINTS, ROWS, SUB_COLS, SUB_HINTS, SUB_ROWS};
+use crate::input::{cols, hints, rows, sub_cols, sub_hints, sub_rows, InputState};
 use font8x8::UnicodeFonts;
 
 // ARGB8888 — byte order on disk/in memory is [Blue, Green, Red, Alpha]
@@ -45,20 +45,23 @@ pub fn render_grid(buf: &mut [u8], w: u32, h: u32, input: &InputState, dragging:
         _ => {}
     }
 
-    let cell_w = w / COLS;
-    let cell_h = h / ROWS;
+    let hints = hints();
+    let ncols = cols();
+    let nrows = rows();
+    let cell_w = w / ncols;
+    let cell_h = h / nrows;
     let char_w = 8 * FONT_SCALE;
     let char_h = 8 * FONT_SCALE;
     let gap = 3u32;
     let label_w = char_w * 2 + gap;
     let cell_normal = if dragging { CELL_DRAG } else { CELL_NORMAL };
 
-    for row in 0..ROWS {
-        for col in 0..COLS {
+    for row in 0..nrows {
+        for col in 0..ncols {
             let x = col * cell_w;
             let y = row * cell_h;
-            let first_hint = HINTS[col as usize];
-            let second_hint = HINTS[row as usize];
+            let first_hint = hints[col as usize];
+            let second_hint = hints[row as usize];
 
             let (cell_bg, c1, c2) = match input {
                 InputState::First => (Some(cell_normal), TEXT_FIRST, TEXT_SECOND),
@@ -296,8 +299,11 @@ fn render_sub_grid(
     selected: Option<(u32, u32)>,
     dragging: bool,
 ) {
-    let cell_w = c.w / COLS;
-    let cell_h = h / ROWS;
+    let nsub_cols = sub_cols();
+    let nsub_rows = sub_rows();
+    let sub_hints = sub_hints();
+    let cell_w = c.w / cols();
+    let cell_h = h / rows();
     let cell_x = main_col * cell_w;
     let cell_y = main_row * cell_h;
 
@@ -314,16 +320,16 @@ fn render_sub_grid(
     c.fill_rect(cell_x, cell_y, 1, cell_h, border);
     c.fill_rect(cell_x + cell_w - 1, cell_y, 1, cell_h, border);
 
-    let sub_cell_w = cell_w / SUB_COLS;
-    let sub_cell_h = cell_h / SUB_ROWS;
+    let sub_cell_w = cell_w / nsub_cols;
+    let sub_cell_h = cell_h / nsub_rows;
     let glyph_ox = sub_cell_w.saturating_sub(8) / 2;
     let glyph_oy = sub_cell_h.saturating_sub(8) / 2;
 
-    for sub_row in 0..SUB_ROWS {
-        for sub_col in 0..SUB_COLS {
+    for sub_row in 0..nsub_rows {
+        for sub_col in 0..nsub_cols {
             let x = cell_x + sub_col * sub_cell_w;
             let y = cell_y + sub_row * sub_cell_h;
-            let hint = SUB_HINTS[(sub_row * SUB_COLS + sub_col) as usize];
+            let hint = sub_hints[(sub_row * nsub_cols + sub_col) as usize];
             let is_selected = selected == Some((sub_col, sub_row));
             let (bg, text) = if is_selected {
                 (CELL_HIGHLIGHT, TEXT_HIGHLIGHT)

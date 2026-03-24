@@ -1,6 +1,6 @@
 use crate::{
     backend::{Backend, KeyEvent},
-    input::{InputState, COLS, HINTS, ROWS, SUB_COLS, SUB_HINTS, SUB_ROWS},
+    input::{cols, hints, rows, sub_cols, sub_hints, sub_rows, InputState},
     macro_store::MacroAction,
     mode::{draw_grid, Mode, ModeTransition},
 };
@@ -37,9 +37,9 @@ pub(super) fn handle_key<B: Backend>(
             drag_origin: None,
         })),
         KeyEvent::Char(ch)
-            if HINTS.contains(ch)
+            if hints().contains(ch)
                 || (matches!(input_state, InputState::SubFirst { .. })
-                    && SUB_HINTS.contains(ch)) =>
+                    && sub_hints().contains(ch)) =>
         {
             match input_state {
                 InputState::First => Ok(ModeTransition::Enter(Mode::MacroRecording {
@@ -50,10 +50,10 @@ pub(super) fn handle_key<B: Backend>(
                     drag_start_keys: drag_start_keys.to_owned(),
                 })),
                 InputState::Second(first) => {
-                    let col = HINTS.iter().position(|c| c == first).unwrap_or(0) as u32;
-                    let row = HINTS.iter().position(|c| c == ch).unwrap_or(0) as u32;
-                    let cell_w = width / COLS;
-                    let cell_h = height / ROWS;
+                    let col = hints().iter().position(|c| c == first).unwrap_or(0) as u32;
+                    let row = hints().iter().position(|c| c == ch).unwrap_or(0) as u32;
+                    let cell_w = width / cols();
+                    let cell_h = height / rows();
                     let cx = col * cell_w + cell_w / 2;
                     let cy = row * cell_h + cell_h / 2;
 
@@ -68,13 +68,13 @@ pub(super) fn handle_key<B: Backend>(
                     }))
                 }
                 InputState::SubFirst { col, row } => {
-                    if let Some(idx) = SUB_HINTS.iter().position(|c| c == ch) {
-                        let sub_col = idx as u32 % SUB_COLS;
-                        let sub_row = idx as u32 / SUB_COLS;
-                        let cell_w = width / COLS;
-                        let cell_h = height / ROWS;
-                        let sub_cell_w = cell_w / SUB_COLS;
-                        let sub_cell_h = cell_h / SUB_ROWS;
+                    if let Some(idx) = sub_hints().iter().position(|c| c == ch) {
+                        let sub_col = idx as u32 % sub_cols();
+                        let sub_row = idx as u32 / sub_cols();
+                        let cell_w = width / cols();
+                        let cell_h = height / rows();
+                        let sub_cell_w = cell_w / sub_cols();
+                        let sub_cell_h = cell_h / sub_rows();
                         let cx = col * cell_w + sub_col * sub_cell_w + sub_cell_w / 2;
                         let cy = row * cell_h + sub_row * sub_cell_h + sub_cell_h / 2;
 
