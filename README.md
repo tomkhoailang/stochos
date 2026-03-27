@@ -2,13 +2,15 @@
 
 > **stochos** (/'sto.xos/) — from Greek *στόχος*: aim, target, goal.
 
-Keyboard-driven mouse control overlay for Wayland. OSS alternative to [mouseless](https://mouseless.click).
+Keyboard-driven mouse control overlay for Wayland and X11. OSS alternative to [mouseless](https://mouseless.click).
 
 ![example](example.gif)
 
 Displays a letter grid over your screen. Type a two-key combo to jump to a cell, refine with a sub-grid key, then act. Runs once per invocation (no daemon).
 
-Tested on **Hyprland**. Should work on any wlroots-based compositor with `zwlr_layer_shell_v1` and `zwlr_virtual_pointer_v1`.
+**Wayland:** Tested on **Hyprland**. Should work on any wlroots-based compositor with `zwlr_layer_shell_v1` and `zwlr_virtual_pointer_v1`.
+
+**X11:** Tested on **i3**. Should work on any X11 window manager with the XTest extension.
 
 ## Install
 
@@ -29,15 +31,27 @@ From source:
 ```sh
 git clone https://github.com/museslabs/stochos
 cd stochos
-cargo build --release
+cargo build --release                                          # both backends
+cargo build --release --no-default-features --features wayland # Wayland only
+cargo build --release --no-default-features --features x11     # X11 only
 ```
 
-## Hyprland setup
+## Setup
+
+### Hyprland
 
 Bind it to a key in `hyprland.conf`:
 
 ```
 bind = , SUPER_L, exec, stochos
+```
+
+### i3
+
+Bind it to a key in `~/.config/i3/config`:
+
+```
+bindsym Super_L exec stochos
 ```
 
 ## Usage

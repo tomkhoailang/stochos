@@ -64,4 +64,8 @@ pub trait Backend {
     fn reopen(&mut self) -> Result<()>;
 }
 
+#[cfg(feature = "wayland")]
 pub mod wayland;
+
+#[cfg(feature = "x11")]
+pub mod x11;
