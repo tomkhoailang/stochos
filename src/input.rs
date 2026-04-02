@@ -1,4 +1,4 @@
-use crate::config::config;
+use crate::{config::config, runtime::options};
 
 pub fn hints() -> &'static [char] {
     &config().grid.hints
@@ -11,13 +11,25 @@ pub fn rows() -> u32 {
 }
 
 pub fn sub_hints() -> &'static [char] {
-    &config().grid.sub_hints
+    let hints = &config().grid.sub_hints;
+    if let Some(size) = options().subgrid_size {
+        let len = (size as usize)
+            .saturating_mul(size as usize)
+            .min(hints.len());
+        &hints[..len]
+    } else {
+        hints
+    }
 }
 pub fn sub_cols() -> u32 {
-    config().grid.sub_cols
+    options().subgrid_size.unwrap_or(config().grid.sub_cols)
 }
 pub fn sub_rows() -> u32 {
-    config().sub_rows()
+    if let Some(size) = options().subgrid_size {
+        size
+    } else {
+        config().sub_rows()
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -35,6 +47,20 @@ pub enum InputState {
         sub_col: u32,
         sub_row: u32,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    fn clipped_subgrid_len(size: u32, available: usize) -> usize {
+        (size as usize).saturating_mul(size as usize).min(available)
+    }
+
+    #[test]
+    fn clips_override_to_available_hints() {
+        assert_eq!(clipped_subgrid_len(4, 25), 16);
+        assert_eq!(clipped_subgrid_len(5, 25), 25);
+        assert_eq!(clipped_subgrid_len(5, 17), 17);
+    }
 }
 
 impl InputState {

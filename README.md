@@ -45,6 +45,7 @@ Bind it to a key in `hyprland.conf`:
 ```
 bind = , SUPER_L, exec, stochos
 bind = , SUPER_SHIFT_L, exec, stochos --single-click
+bind = , ALT_L, exec, stochos --4x4
 ```
 
 ### i3
@@ -54,6 +55,7 @@ Bind it to a key in `~/.config/i3/config`:
 ```
 bindsym Super_L exec stochos
 bindsym Super+Shift+L exec stochos --single-click
+bindsym Mod1_L exec stochos --4x4
 ```
 
 ## Usage
@@ -64,6 +66,8 @@ bindsym Super+Shift+L exec stochos --single-click
 4. Perform an action (see below)
 
 For a dedicated one-shot left-click binding, launch `stochos --single-click`. In that mode, the third hint key clicks immediately and exits.
+
+If you want a less dense last grid, launch `stochos --4x4` or combine it with other flags such as `stochos --single-click --4x4`.
 
 ### Default keys
 
@@ -123,6 +127,7 @@ macro_record = "`"
 - `hints` sets the characters for the main grid. Grid size is `len(hints) x len(hints)` (default 20x20 = 400 cells).
 - `sub_hints` sets the characters for the sub-grid. Sub-grid size is `sub_cols x (len(sub_hints) / sub_cols)` (default 5x5 = 25 cells).
 - `sub_cols` sets how many columns the sub-grid has.
+- Runtime flags `--3x3`, `--4x4`, and `--5x5` can temporarily override the last refinement grid without editing config.
 
 ### Keys
 
