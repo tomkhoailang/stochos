@@ -3,6 +3,7 @@ use crate::{
     input::{cols, hints, rows, sub_cols, sub_hints, sub_rows, InputState},
     macro_store::MacroAction,
     mode::{draw_grid, Mode, ModeTransition},
+    runtime::options,
 };
 
 pub(super) fn handle_key<B: Backend>(
@@ -79,6 +80,25 @@ pub(super) fn handle_key<B: Backend>(
                         let cy = row * cell_h + sub_row * sub_cell_h + sub_cell_h / 2;
 
                         backend.move_mouse(cx, cy)?;
+
+                        if options().single_click && drag_origin.is_none() {
+                            let mut new_actions = recorded_actions.to_vec();
+                            backend.click(cx, cy)?;
+                            new_actions.push(MacroAction::Click(format!(
+                                "{}{}{}",
+                                hints()[*col as usize],
+                                hints()[*row as usize],
+                                ch
+                            )));
+                            backend.reopen()?;
+                            return Ok(ModeTransition::Enter(Mode::MacroRecording {
+                                input_state: InputState::First,
+                                target: None,
+                                drag_origin: None,
+                                recorded_actions: new_actions,
+                                drag_start_keys: String::new(),
+                            }));
+                        }
 
                         return Ok(ModeTransition::Enter(Mode::MacroRecording {
                             input_state: InputState::Ready {

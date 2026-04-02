@@ -44,6 +44,7 @@ Bind it to a key in `hyprland.conf`:
 
 ```
 bind = , SUPER_L, exec, stochos
+bind = , SUPER_SHIFT_L, exec, stochos --single-click
 ```
 
 ### i3
@@ -52,6 +53,7 @@ Bind it to a key in `~/.config/i3/config`:
 
 ```
 bindsym Super_L exec stochos
+bindsym Super+Shift+L exec stochos --single-click
 ```
 
 ## Usage
@@ -60,6 +62,8 @@ bindsym Super_L exec stochos
 2. Type two letters to select a grid cell (e.g. `a` then `s`)
 3. Type one more letter to refine within the sub-grid
 4. Perform an action (see below)
+
+For a dedicated one-shot left-click binding, launch `stochos --single-click`. In that mode, the third hint key clicks immediately and exits.
 
 ### Default keys
 

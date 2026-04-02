@@ -4,8 +4,12 @@ use crate::{
 };
 use font8x8::UnicodeFonts;
 
-const FONT_SCALE: u32 = 2;
+const PANEL_TEXT_SCALE: u32 = 2;
 const LINE_H: u32 = 24;
+const MAIN_GRID_MIN_SCALE: u32 = 2;
+const MAIN_GRID_MAX_SCALE: u32 = 4;
+const SUB_GRID_MIN_SCALE: u32 = 1;
+const SUB_GRID_MAX_SCALE: u32 = 2;
 
 pub fn render_grid(buf: &mut [u8], w: u32, h: u32, input: &InputState, dragging: bool) {
     let mut c = Canvas { buf, w };
@@ -32,9 +36,10 @@ pub fn render_grid(buf: &mut [u8], w: u32, h: u32, input: &InputState, dragging:
     let nrows = rows();
     let cell_w = w / ncols;
     let cell_h = h / nrows;
-    let char_w = 8 * FONT_SCALE;
-    let char_h = 8 * FONT_SCALE;
-    let gap = 3u32;
+    let font_scale = main_grid_font_scale(cell_w, cell_h);
+    let char_w = 8 * font_scale;
+    let char_h = 8 * font_scale;
+    let gap = font_scale + 2;
     let label_w = char_w * 2 + gap;
     let cell_normal = if dragging {
         colors().cell_drag
@@ -71,8 +76,8 @@ pub fn render_grid(buf: &mut [u8], w: u32, h: u32, input: &InputState, dragging:
 
             let lx = x + cell_w.saturating_sub(label_w) / 2;
             let ly = y + cell_h.saturating_sub(char_h) / 2;
-            c.draw_glyph(lx, ly, first_hint, c1, FONT_SCALE);
-            c.draw_glyph(lx + char_w + gap, ly, second_hint, c2, FONT_SCALE);
+            c.draw_glyph(lx, ly, first_hint, c1, font_scale);
+            c.draw_glyph(lx + char_w + gap, ly, second_hint, c2, font_scale);
         }
     }
 }
@@ -221,7 +226,8 @@ impl<'a> Panel<'a> {
     }
 
     fn text(&mut self, text: &[u8], color: [u8; 4]) -> &mut Self {
-        self.c.draw_text(self.tx, self.ty, text, color, 2);
+        self.c
+            .draw_text(self.tx, self.ty, text, color, PANEL_TEXT_SCALE);
         self.ty += LINE_H;
         self
     }
@@ -232,24 +238,36 @@ impl<'a> Panel<'a> {
     }
 
     fn text_with_char(&mut self, label: &[u8], ch: char, color: [u8; 4]) -> &mut Self {
-        self.c.draw_text(self.tx, self.ty, label, color, 2);
         self.c
-            .draw_glyph(self.tx + label.len() as u32 * 16, self.ty, ch, color, 2);
+            .draw_text(self.tx, self.ty, label, color, PANEL_TEXT_SCALE);
+        self.c.draw_glyph(
+            self.tx + label.len() as u32 * 8 * PANEL_TEXT_SCALE,
+            self.ty,
+            ch,
+            color,
+            PANEL_TEXT_SCALE,
+        );
         self.ty += LINE_H;
         self
     }
 
     /// Draws a `> chars_` text-input prompt line.
     fn input_line(&mut self, chars: &[char], color: [u8; 4]) -> &mut Self {
-        self.c.draw_text(self.tx, self.ty, b"> ", color, 2);
         self.c
-            .draw_chars(self.tx + 2 * 16, self.ty, chars, color, 2);
+            .draw_text(self.tx, self.ty, b"> ", color, PANEL_TEXT_SCALE);
+        self.c.draw_chars(
+            self.tx + 2 * 8 * PANEL_TEXT_SCALE,
+            self.ty,
+            chars,
+            color,
+            PANEL_TEXT_SCALE,
+        );
         self.c.draw_glyph(
-            self.tx + (2 + chars.len() as u32) * 16,
+            self.tx + (2 + chars.len() as u32) * 8 * PANEL_TEXT_SCALE,
             self.ty,
             '_',
             color,
-            2,
+            PANEL_TEXT_SCALE,
         );
         self.ty += LINE_H;
         self
@@ -273,18 +291,37 @@ impl<'a> Panel<'a> {
         match bind_key {
             Some(k) => {
                 self.c
-                    .draw_text(self.tx, self.ty, b"[", colors().text_grey, 2);
-                self.c
-                    .draw_glyph(self.tx + 16, self.ty, k, colors().text_grey, 2);
-                self.c
-                    .draw_text(self.tx + 2 * 16, self.ty, b"] ", colors().text_grey, 2);
+                    .draw_text(self.tx, self.ty, b"[", colors().text_grey, PANEL_TEXT_SCALE);
+                self.c.draw_glyph(
+                    self.tx + 8 * PANEL_TEXT_SCALE,
+                    self.ty,
+                    k,
+                    colors().text_grey,
+                    PANEL_TEXT_SCALE,
+                );
+                self.c.draw_text(
+                    self.tx + 2 * 8 * PANEL_TEXT_SCALE,
+                    self.ty,
+                    b"] ",
+                    colors().text_grey,
+                    PANEL_TEXT_SCALE,
+                );
             }
-            None => self
-                .c
-                .draw_text(self.tx, self.ty, b"[ ] ", colors().text_grey, 2),
+            None => self.c.draw_text(
+                self.tx,
+                self.ty,
+                b"[ ] ",
+                colors().text_grey,
+                PANEL_TEXT_SCALE,
+            ),
         }
-        self.c
-            .draw_text(self.tx + 4 * 16, self.ty, name.as_bytes(), text_color, 2);
+        self.c.draw_text(
+            self.tx + 4 * 8 * PANEL_TEXT_SCALE,
+            self.ty,
+            name.as_bytes(),
+            text_color,
+            PANEL_TEXT_SCALE,
+        );
         self.ty += LINE_H;
         self
     }
@@ -320,8 +357,9 @@ fn render_sub_grid(
 
     let sub_cell_w = cell_w / nsub_cols;
     let sub_cell_h = cell_h / nsub_rows;
-    let glyph_ox = sub_cell_w.saturating_sub(8) / 2;
-    let glyph_oy = sub_cell_h.saturating_sub(8) / 2;
+    let font_scale = sub_grid_font_scale(sub_cell_w, sub_cell_h);
+    let glyph_ox = sub_cell_w.saturating_sub(8 * font_scale) / 2;
+    let glyph_oy = sub_cell_h.saturating_sub(8 * font_scale) / 2;
 
     for sub_row in 0..nsub_rows {
         for sub_col in 0..nsub_cols {
@@ -335,7 +373,39 @@ fn render_sub_grid(
                 (colors().sub_cell_normal, colors().text_first)
             };
             c.fill_rect(x + 1, y + 1, sub_cell_w - 2, sub_cell_h - 2, bg);
-            c.draw_glyph(x + glyph_ox, y + glyph_oy, hint, text, 1);
+            c.draw_glyph(x + glyph_ox, y + glyph_oy, hint, text, font_scale);
         }
+    }
+}
+
+fn main_grid_font_scale(cell_w: u32, cell_h: u32) -> u32 {
+    let by_w = cell_w.saturating_sub(10) / 18;
+    let by_h = cell_h.saturating_sub(8) / 8;
+    by_w.min(by_h)
+        .clamp(MAIN_GRID_MIN_SCALE, MAIN_GRID_MAX_SCALE)
+}
+
+fn sub_grid_font_scale(cell_w: u32, cell_h: u32) -> u32 {
+    let by_w = cell_w.saturating_sub(4) / 8;
+    let by_h = cell_h.saturating_sub(4) / 8;
+    by_w.min(by_h).clamp(SUB_GRID_MIN_SCALE, SUB_GRID_MAX_SCALE)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{main_grid_font_scale, sub_grid_font_scale};
+
+    #[test]
+    fn scales_main_grid_font_up_when_cells_are_large() {
+        assert_eq!(main_grid_font_scale(96, 54), 4);
+        assert_eq!(main_grid_font_scale(68, 38), 3);
+        assert_eq!(main_grid_font_scale(40, 24), 2);
+    }
+
+    #[test]
+    fn clamps_sub_grid_font_scale() {
+        assert_eq!(sub_grid_font_scale(10, 10), 1);
+        assert_eq!(sub_grid_font_scale(20, 20), 2);
+        assert_eq!(sub_grid_font_scale(32, 32), 2);
     }
 }

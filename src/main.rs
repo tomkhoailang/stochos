@@ -5,8 +5,17 @@ mod input;
 mod macro_store;
 mod mode;
 mod render;
+mod runtime;
 
 fn main() -> anyhow::Result<()> {
+    match runtime::parse_args(std::env::args_os())? {
+        runtime::ArgsAction::Run(options) => runtime::set_options(options),
+        runtime::ArgsAction::Help => {
+            print!("{}", runtime::usage());
+            return Ok(());
+        }
+    }
+
     config::init();
 
     #[cfg(feature = "wayland")]

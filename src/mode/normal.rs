@@ -6,6 +6,7 @@ use crate::{
     input::{cols, hints, rows, sub_cols, sub_hints, sub_rows, InputState},
     macro_store::MacroAction,
     mode::{draw_grid, ModeTransition},
+    runtime::options,
 };
 
 pub(super) fn handle_key<B: Backend>(
@@ -113,6 +114,11 @@ pub(super) fn handle_key<B: Backend>(
                         let cy = row * cell_h + sub_row * sub_cell_h + sub_cell_h / 2;
 
                         backend.move_mouse(cx, cy)?;
+
+                        if options().single_click && drag_origin.is_none() {
+                            backend.click(cx, cy)?;
+                            return Ok(ModeTransition::Exit);
+                        }
 
                         return Ok(ModeTransition::Enter(Mode::Normal {
                             input_state: InputState::Ready {
