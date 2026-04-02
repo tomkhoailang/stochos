@@ -58,11 +58,17 @@ pub fn render_grid(buf: &mut [u8], w: u32, h: u32, input: &InputState, dragging:
                 InputState::First => (Some(cell_normal), colors().text_first, colors().text_second),
                 InputState::Second(typed) => {
                     if first_hint == *typed {
-                        (
-                            Some(colors().cell_highlight),
-                            colors().text_highlight,
-                            colors().text_second,
-                        )
+                        render_sub_grid_rect(
+                            &mut c,
+                            x,
+                            y,
+                            cell_w,
+                            cell_h,
+                            None,
+                            dragging,
+                            Some(second_hint),
+                        );
+                        continue;
                     } else {
                         (None, colors().text_dim, colors().text_dim)
                     }
@@ -335,13 +341,26 @@ fn render_sub_grid(
     selected: Option<(u32, u32)>,
     dragging: bool,
 ) {
-    let nsub_cols = sub_cols();
-    let nsub_rows = sub_rows();
-    let sub_hints = sub_hints();
     let cell_w = c.w / cols();
     let cell_h = h / rows();
     let cell_x = main_col * cell_w;
     let cell_y = main_row * cell_h;
+    render_sub_grid_rect(c, cell_x, cell_y, cell_w, cell_h, selected, dragging, None);
+}
+
+fn render_sub_grid_rect(
+    c: &mut Canvas<'_>,
+    cell_x: u32,
+    cell_y: u32,
+    cell_w: u32,
+    cell_h: u32,
+    selected: Option<(u32, u32)>,
+    dragging: bool,
+    row_badge: Option<char>,
+) {
+    let nsub_cols = sub_cols();
+    let nsub_rows = sub_rows();
+    let sub_hints = sub_hints();
 
     c.fill_rect(cell_x, cell_y, cell_w, cell_h, colors().sub_bg);
 
@@ -375,6 +394,27 @@ fn render_sub_grid(
             c.fill_rect(x + 1, y + 1, sub_cell_w - 2, sub_cell_h - 2, bg);
             c.draw_glyph(x + glyph_ox, y + glyph_oy, hint, text, font_scale);
         }
+    }
+
+    if let Some(ch) = row_badge {
+        let badge_scale = main_grid_font_scale(cell_w, cell_h).min(3);
+        let badge_size = 8 * badge_scale + 6;
+        let badge_x = cell_x + 2;
+        let badge_y = cell_y + 2;
+        c.fill_rect(
+            badge_x,
+            badge_y,
+            badge_size,
+            badge_size,
+            colors().selected_bg,
+        );
+        c.draw_glyph(
+            badge_x + (badge_size - 8 * badge_scale) / 2,
+            badge_y + (badge_size - 8 * badge_scale) / 2,
+            ch,
+            colors().text_white,
+            badge_scale,
+        );
     }
 }
 
