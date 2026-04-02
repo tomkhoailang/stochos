@@ -200,6 +200,32 @@ impl<'a> Canvas<'a> {
             self.draw_glyph(x + i as u32 * 8 * scale, y, ch, color, scale);
         }
     }
+
+    fn draw_glyph_fitted(&mut self, x: u32, y: u32, w: u32, h: u32, ch: char, color: [u8; 4]) {
+        if w == 0 || h == 0 {
+            return;
+        }
+
+        let glyph = font8x8::BASIC_FONTS.get(ch).unwrap_or([0u8; 8]);
+        for dy in 0..h {
+            let src_row = ((dy * 8) / h).min(7) as usize;
+            let bits = glyph[src_row];
+            let py = y + dy;
+            let row_off = (py * self.w) as usize * 4;
+
+            for dx in 0..w {
+                let src_col = ((dx * 8) / w).min(7);
+                if bits & (1 << src_col) == 0 {
+                    continue;
+                }
+
+                let off = row_off + ((x + dx) * 4) as usize;
+                if off + 4 <= self.buf.len() {
+                    self.buf[off..off + 4].copy_from_slice(&color);
+                }
+            }
+        }
+    }
 }
 
 /// Wraps a Canvas with layout tracking for centered popup panels.
@@ -376,9 +402,7 @@ fn render_sub_grid_rect(
 
     let sub_cell_w = cell_w / nsub_cols;
     let sub_cell_h = cell_h / nsub_rows;
-    let font_scale = sub_grid_font_scale(sub_cell_w, sub_cell_h);
-    let glyph_ox = sub_cell_w.saturating_sub(8 * font_scale) / 2;
-    let glyph_oy = sub_cell_h.saturating_sub(8 * font_scale) / 2;
+    let glyph_size = fitted_sub_grid_glyph_size(sub_cell_w, sub_cell_h);
 
     for sub_row in 0..nsub_rows {
         for sub_col in 0..nsub_cols {
@@ -392,7 +416,9 @@ fn render_sub_grid_rect(
                 (colors().sub_cell_normal, colors().text_first)
             };
             c.fill_rect(x + 1, y + 1, sub_cell_w - 2, sub_cell_h - 2, bg);
-            c.draw_glyph(x + glyph_ox, y + glyph_oy, hint, text, font_scale);
+            let glyph_x = x + sub_cell_w.saturating_sub(glyph_size) / 2;
+            let glyph_y = y + sub_cell_h.saturating_sub(glyph_size) / 2;
+            c.draw_glyph_fitted(glyph_x, glyph_y, glyph_size, glyph_size, hint, text);
         }
     }
 
@@ -431,9 +457,13 @@ fn sub_grid_font_scale(cell_w: u32, cell_h: u32) -> u32 {
     by_w.min(by_h).clamp(SUB_GRID_MIN_SCALE, SUB_GRID_MAX_SCALE)
 }
 
+fn fitted_sub_grid_glyph_size(cell_w: u32, cell_h: u32) -> u32 {
+    cell_w.min(cell_h).saturating_sub(1).max(8)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{main_grid_font_scale, sub_grid_font_scale};
+    use super::{fitted_sub_grid_glyph_size, main_grid_font_scale, sub_grid_font_scale};
 
     #[test]
     fn scales_main_grid_font_up_when_cells_are_large() {
@@ -447,5 +477,12 @@ mod tests {
         assert_eq!(sub_grid_font_scale(10, 10), 1);
         assert_eq!(sub_grid_font_scale(20, 20), 2);
         assert_eq!(sub_grid_font_scale(32, 32), 2);
+    }
+
+    #[test]
+    fn fits_sub_grid_glyph_to_available_space() {
+        assert_eq!(fitted_sub_grid_glyph_size(6, 6), 8);
+        assert_eq!(fitted_sub_grid_glyph_size(12, 10), 9);
+        assert_eq!(fitted_sub_grid_glyph_size(24, 13), 12);
     }
 }
